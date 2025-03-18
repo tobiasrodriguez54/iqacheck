@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IQA Checksum</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #00274d; /* Ford Blue Background */
+            color: #fff; /* White text for readability */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #333; /* Dark text inside the container */
+        }
+        h1 {
+            text-align: center;
+            color: #00274d; /* Ford Blue for headings */
+        }
+        input, button, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        input:focus, textarea:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            color: #333; /* Dark text for results */
+        }
+        #engineInfo {
+            font-size: 16px;
+            color: #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>IQA Checksum</h1>
+        <input type="text" id="title" placeholder="Enter title"><br>
+        <textarea id="inputString" placeholder="Enter input string"></textarea><br>
+        <button onclick="identifyEngine()">Check</button>
+        <button onclick="downloadHex()">Download .HEX</button>
+
+        <div id="engineInfo"></div>
+        <div id="results"></div>
+    </div>
+
+    <script type="text/javascript">
+        let hexContent = ''; // Store the hex content globally
+
+        function calculateChecksum(data) {
+            let sum = 0;
+            for (let i = 0; i < data.length; i += 2) {
+                const byte = parseInt(data.substring(i, i + 2), 16);
+                sum += byte;
+            }
+            const checksum = (256 - (sum % 256)) % 256;
+            return checksum.toString(16).toUpperCase().padStart(2, '0');
+        }
+
+        function identifyEngine() {
+            const inputString = document.getElementById('inputString').value;
+            const resultsDiv = document.getElementById('results');
+            const engineInfoDiv = document.getElementById('engineInfo');
+
+            const pantherMarkers = ['ARA', 'AMA', 'ANA'];
+            const lionMarkers = ['FA', 'BA', 'BEA'];
+
+            let engineType = null;
+            let segments = []; // Store the segments
+
+            // Prefixes for the segments
+            const segmentPrefixes = [
+                ':08000000',
+                ':08000800',
+                ':08001000',
+                ':08001800',
+                ':08002000',
+                ':08002800'
+            ];
+
+            // Check for Panther markers
+            for (const marker of pantherMarkers) {
+                if (inputString.includes(marker)) {
+                    engineType = 'Panther';
+                    const markerIndex = inputString.indexOf(marker);
+                    let relevantPart = inputString.substring(markerIndex + marker.length);
+
+                    // Remove all group separator characters
+                    relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
+
+                    const allSegments = relevantPart.match(/.{16}/g) || []; // Split into 16-character segments
+                    segments = allSegments.slice(0, 4); // Take the first 4 segments
+
+                    if (segments.length !== 4) {
+                        resultsDiv.innerHTML = "Invalid Panther input: Requires at least 4 segments of 16 characters each.";
+                        return;
+                    }
+
+                    if (!segments.every(segment => segment.length === 16)) {
+                        resultsDiv.innerHTML = "Invalid Panther input: All segments must be 16 characters long.";
+                        return;
+                    }
+                    break; // Found a Panther marker, no need to check further
+                }
+            }
+
+            // If not Panther, check for Lion markers
+            if (engineType === null) {
+                let lionMarkerFound = null;
+                for (const marker of lionMarkers) {
+                    if (inputString.includes(marker)) {
+                        engineType = 'Lion';
+                        lionMarkerFound = marker;
+                        break;
+                    }
+                }
+
+                if (engineType === 'Lion') {
+                    const zIndex = inputString.indexOf('Z');
+                    if (zIndex !== -1) {
+                        const remainingString = inputString.substring(zIndex + 1);
+                        const allSegments = remainingString.match(/.{16}/g) || []; // Split into 16-character segments
+                        segments = allSegments.slice(0, 6); // Take the first 6 segments
+
+                        if (segments.length !== 6) {
+                            resultsDiv.innerHTML = "Invalid Lion input: Requires at least 6 segments of 16 characters each after removing prefix.";
+                            return;
+                        }
+
+                        if (!segments.every(segment => segment.length === 16)) {
+                             resultsDiv.innerHTML = "Invalid Lion input: All segments must be 16 characters long.";
+                             return;
+                        }
+                    } else {
+                        resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
+                        return;
+                    }
+                }
+            }
+
+            // Build the hex content
+            hexContent = '';
+            if (engineType) {
+                let output = '';
+
+                // Add start-of-file record
+                if (engineType === 'Lion') {
+                    output += ':020000040000FA\n';
+                } else if (engineType === 'Panther') {
+                    output += ':020000040001F9\n';
+                }
+
+                segments.forEach((segment, index) => {
+                    const prefix = segmentPrefixes[index] || ':08000000'; // Default if not enough prefixes
+                    const dataRecord = `${prefix}${segment}`;
+                    const checksum = calculateChecksum(dataRecord.slice(1)); // Calculate checksum for the data part
+                    output += `${dataRecord}${checksum}\n`;
+                });
+
+                // Add end-of-file record
+                output += ':00000001FF';
+
+                hexContent = output; // Store the hex content for download
+                engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
+                resultsDiv.innerHTML = `<pre>${output}</pre>`;
+            } else {
+                engineInfoDiv.innerHTML = '';
+                resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
+            }
+        }
+
+        function downloadHex() {
+            const title = document.getElementById('title').value.trim();
+            if (!hexContent) {
+                alert("Please identify the engine type before downloading.");
+                return;
+            }
+            const fileName = `${title}_IQA_DATA.hex`;
+            const blob = new Blob([hexContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+
+</body>
+</html>
