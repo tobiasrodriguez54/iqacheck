@@ -9,13 +9,13 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #00274d; /* Ford Blue Background */
-            color: #fff; /* White text for readability */
+            background-color: #00274d;
+            color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            justify-content: flex-start;
+            min-height: 100vh;
         }
         .container {
             width: 90%;
@@ -24,14 +24,14 @@
             padding: 20px;
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 8px;
-            margin-bottom: 20px;
-            color: #333; /* Dark text inside the container */
+            margin-top: 40px;
+            color: #333;
         }
         h1 {
             text-align: center;
-            color: #00274d; /* Ford Blue for headings */
+            color: #00274d;
         }
-        input, button, textarea {
+        input, button, textarea, select {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -40,7 +40,7 @@
             box-sizing: border-box;
             transition: all 0.3s ease;
         }
-        input:focus, textarea:focus {
+        input:focus, textarea:focus, select:focus {
             border-color: #007bff;
             outline: none;
         }
@@ -62,7 +62,7 @@
             border: 1px solid #eee;
             font-family: 'Courier New', Courier, monospace;
             white-space: pre-wrap;
-            color: #333; /* Dark text for results */
+            color: #333;
         }
         #engineInfo {
             font-size: 16px;
@@ -70,11 +70,23 @@
             margin-bottom: 10px;
             text-align: center;
         }
+        .toggle-container {
+            width: 90%;
+            max-width: 600px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="toggle-container">
+        <select id="modeToggle" onchange="toggleMode()">
+            <option value="missingIQA">Missing IQA</option>
+            <option value="brokenQR">Broken QR</option>
+        </select>
+    </div>
+
+    <div id="missingIQAContainer" class="container">
         <h1>IQA Checksum</h1>
         <input type="text" id="title" placeholder="Enter title (exactly 17 characters)" maxlength="17"><br>
         <textarea id="inputString" placeholder="Enter input string"></textarea><br>
@@ -85,8 +97,27 @@
         <div id="results"></div>
     </div>
 
+    <div id="brokenQRContainer" class="container" style="display: none;">
+        <h1>IQA Checksum</h1>
+        <!-- More UI elements for Broken QR will be added later -->
+    </div>
+
     <script type="text/javascript">
-        let hexContent = ''; // Store the hex content globally
+        let hexContent = '';
+
+        function toggleMode() {
+            const mode = document.getElementById("modeToggle").value;
+            const missing = document.getElementById("missingIQAContainer");
+            const broken = document.getElementById("brokenQRContainer");
+
+            if (mode === "missingIQA") {
+                missing.style.display = "block";
+                broken.style.display = "none";
+            } else {
+                missing.style.display = "none";
+                broken.style.display = "block";
+            }
+        }
 
         function calculateChecksum(data) {
             let sum = 0;
@@ -116,7 +147,7 @@
             let segments = [];
 
             const segmentPrefixes = [
-                ':08000000', ':08000800', ':08001000', 
+                ':08000000', ':08000800', ':08001000',
                 ':08001800', ':08002000', ':08002800'
             ];
 
@@ -144,6 +175,7 @@
                         break;
                     }
                 }
+
                 if (engineType === 'Lion') {
                     const zIndex = inputString.indexOf('Z');
                     if (zIndex !== -1) {
@@ -165,7 +197,6 @@
             hexContent = '';
             if (engineType) {
                 let output = '';
-
                 output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
 
                 segments.forEach((segment, index) => {
@@ -176,7 +207,6 @@
                 });
 
                 output += ':00000001FF';
-
                 hexContent = output;
                 engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
                 resultsDiv.innerHTML = `<pre>${output}</pre>`;
@@ -206,6 +236,5 @@
             URL.revokeObjectURL(url);
         }
     </script>
-
 </body>
 </html>
