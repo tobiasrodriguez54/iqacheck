@@ -1,240 +1,320 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IQA Checksum</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #00274d;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            min-height: 100vh;
-        }
-        .container {
-            width: 90%;
-            max-width: 600px;
-            background: #fff;
-            padding: 20px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-            border-radius: 8px;
-            margin-top: 40px;
-            color: #333;
-        }
-        h1 {
-            text-align: center;
-            color: #00274d;
-        }
-        input, button, textarea, select {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-        }
-        input:focus, textarea:focus, select:focus {
-            border-color: #007bff;
-            outline: none;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            border: none;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #results {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 4px;
-            border: 1px solid #eee;
-            font-family: 'Courier New', Courier, monospace;
-            white-space: pre-wrap;
-            color: #333;
-        }
-        #engineInfo {
-            font-size: 16px;
-            color: #fff;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .toggle-container {
-            width: 90%;
-            max-width: 600px;
-            margin-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IQA Checksum</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #00274d;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      width: 90%;
+      max-width: 600px;
+      background: #fff;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #00274d;
+    }
+    input, button, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+    input:focus, textarea:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #results {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border: 1px solid #eee;
+      font-family: 'Courier New', Courier, monospace;
+      white-space: pre-wrap;
+      color: #333;
+    }
+    #engineInfo {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+      margin-bottom: 20px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #007bff;
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .toggle-labels {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 0 10px 0;
+      font-weight: bold;
+    }
+
+    .toggle-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
 
-    <div class="toggle-container">
-        <select id="modeToggle" onchange="toggleMode()">
-            <option value="missingIQA">Missing IQA</option>
-            <option value="brokenQR">Broken QR</option>
-        </select>
+  <div class="container">
+    <h1>IQA Checksum</h1>
+
+    <div class="toggle-wrapper">
+      <div class="toggle-labels">
+        <span>IQA</span>
+        <span>QR</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+        <span class="slider round"></span>
+      </label>
     </div>
 
-    <div id="missingIQAContainer" class="container">
-        <h1>IQA Checksum</h1>
-        <input type="text" id="title" placeholder="Enter title (exactly 17 characters)" maxlength="17"><br>
-        <textarea id="inputString" placeholder="Enter input string"></textarea><br>
-        <button onclick="identifyEngine()">Check</button>
-        <button onclick="downloadHex()">Download .HEX</button>
-
-        <div id="engineInfo"></div>
-        <div id="results"></div>
+    <!-- IQA Mode -->
+    <div id="iqaSection">
+      <input type="text" id="title" placeholder="Enter title (exactly 17 characters)" maxlength="17"><br>
+      <textarea id="inputString" placeholder="Enter input string"></textarea><br>
+      <button onclick="identifyEngine()">Check</button>
+      <button onclick="downloadHex()">Download .HEX</button>
+      <div id="engineInfo"></div>
+      <div id="results"></div>
     </div>
 
-    <div id="brokenQRContainer" class="container" style="display: none;">
-        <h1>IQA Checksum</h1>
-        <!-- More UI elements for Broken QR will be added later -->
+    <!-- QR Mode -->
+    <div id="qrSection" class="hidden">
+      <div class="toggle-wrapper">
+        <div class="toggle-labels">
+          <span>Panther</span>
+          <span>Lion</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="engineToggle" onchange="toggleEngineInputs()">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div id="qrInputs"></div>
     </div>
+  </div>
 
-    <script type="text/javascript">
-        let hexContent = '';
+  <script>
+    const qrInputsDiv = document.getElementById('qrInputs');
 
-        function toggleMode() {
-            const mode = document.getElementById("modeToggle").value;
-            const missing = document.getElementById("missingIQAContainer");
-            const broken = document.getElementById("brokenQRContainer");
+    function toggleMode() {
+      const isQR = document.getElementById('modeToggle').checked;
+      document.getElementById('iqaSection').classList.toggle('hidden', isQR);
+      document.getElementById('qrSection').classList.toggle('hidden', !isQR);
+    }
 
-            if (mode === "missingIQA") {
-                missing.style.display = "block";
-                broken.style.display = "none";
-            } else {
-                missing.style.display = "none";
-                broken.style.display = "block";
-            }
+    function toggleEngineInputs() {
+      const isLion = document.getElementById('engineToggle').checked;
+      qrInputsDiv.innerHTML = '';
+      const inputCount = isLion ? 6 : 4;
+      for (let i = 1; i <= inputCount; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Segment ${i}`;
+        input.maxLength = 16;
+        qrInputsDiv.appendChild(input);
+      }
+    }
+
+    let hexContent = ''; // Store the hex content globally
+
+    function calculateChecksum(data) {
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 2) {
+        const byte = parseInt(data.substring(i, i + 2), 16);
+        sum += byte;
+      }
+      const checksum = (256 - (sum % 256)) % 256;
+      return checksum.toString(16).toUpperCase().padStart(2, '0');
+    }
+
+    function identifyEngine() {
+      const title = document.getElementById('title').value.trim();
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
+        return;
+      }
+
+      const inputString = document.getElementById('inputString').value;
+      const resultsDiv = document.getElementById('results');
+      const engineInfoDiv = document.getElementById('engineInfo');
+
+      const pantherMarkers = ['ARA', 'AMA', 'ANA'];
+      const lionMarkers = ['FA', 'BA', 'BEA'];
+      let engineType = null;
+      let segments = [];
+
+      const segmentPrefixes = [
+        ':08000000', ':08000800', ':08001000',
+        ':08001800', ':08002000', ':08002800'
+      ];
+
+      for (const marker of pantherMarkers) {
+        if (inputString.includes(marker)) {
+          engineType = 'Panther';
+          const markerIndex = inputString.indexOf(marker);
+          let relevantPart = inputString.substring(markerIndex + marker.length);
+          relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
+          const allSegments = relevantPart.match(/.{16}/g) || [];
+          segments = allSegments.slice(0, 4);
+
+          if (segments.length !== 4 || !segments.every(seg => seg.length === 16)) {
+            resultsDiv.innerHTML = "Invalid Panther input: Requires 4 segments of 16 characters each.";
+            return;
+          }
+          break;
         }
+      }
 
-        function calculateChecksum(data) {
-            let sum = 0;
-            for (let i = 0; i < data.length; i += 2) {
-                const byte = parseInt(data.substring(i, i + 2), 16);
-                sum += byte;
-            }
-            const checksum = (256 - (sum % 256)) % 256;
-            return checksum.toString(16).toUpperCase().padStart(2, '0');
+      if (!engineType) {
+        for (const marker of lionMarkers) {
+          if (inputString.includes(marker)) {
+            engineType = 'Lion';
+            break;
+          }
         }
+        if (engineType === 'Lion') {
+          const zIndex = inputString.indexOf('Z');
+          if (zIndex !== -1) {
+            const remainingString = inputString.substring(zIndex + 1);
+            const allSegments = remainingString.match(/.{16}/g) || [];
+            segments = allSegments.slice(0, 6);
 
-        function identifyEngine() {
-            const title = document.getElementById('title').value.trim();
-            if (title.length !== 17) {
-                alert("The title must be exactly 17 characters long.");
-                return;
+            if (segments.length !== 6 || !segments.every(seg => seg.length === 16)) {
+              resultsDiv.innerHTML = "Invalid Lion input: Requires 6 segments of 16 characters each.";
+              return;
             }
-
-            const inputString = document.getElementById('inputString').value;
-            const resultsDiv = document.getElementById('results');
-            const engineInfoDiv = document.getElementById('engineInfo');
-
-            const pantherMarkers = ['ARA', 'AMA', 'ANA'];
-            const lionMarkers = ['FA', 'BA', 'BEA'];
-
-            let engineType = null;
-            let segments = [];
-
-            const segmentPrefixes = [
-                ':08000000', ':08000800', ':08001000',
-                ':08001800', ':08002000', ':08002800'
-            ];
-
-            for (const marker of pantherMarkers) {
-                if (inputString.includes(marker)) {
-                    engineType = 'Panther';
-                    const markerIndex = inputString.indexOf(marker);
-                    let relevantPart = inputString.substring(markerIndex + marker.length);
-                    relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
-                    const allSegments = relevantPart.match(/.{16}/g) || [];
-                    segments = allSegments.slice(0, 4);
-
-                    if (segments.length !== 4 || !segments.every(seg => seg.length === 16)) {
-                        resultsDiv.innerHTML = "Invalid Panther input: Requires 4 segments of 16 characters each.";
-                        return;
-                    }
-                    break;
-                }
-            }
-
-            if (!engineType) {
-                for (const marker of lionMarkers) {
-                    if (inputString.includes(marker)) {
-                        engineType = 'Lion';
-                        break;
-                    }
-                }
-
-                if (engineType === 'Lion') {
-                    const zIndex = inputString.indexOf('Z');
-                    if (zIndex !== -1) {
-                        const remainingString = inputString.substring(zIndex + 1);
-                        const allSegments = remainingString.match(/.{16}/g) || [];
-                        segments = allSegments.slice(0, 6);
-
-                        if (segments.length !== 6 || !segments.every(seg => seg.length === 16)) {
-                            resultsDiv.innerHTML = "Invalid Lion input: Requires 6 segments of 16 characters each.";
-                            return;
-                        }
-                    } else {
-                        resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
-                        return;
-                    }
-                }
-            }
-
-            hexContent = '';
-            if (engineType) {
-                let output = '';
-                output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
-
-                segments.forEach((segment, index) => {
-                    const prefix = segmentPrefixes[index] || ':08000000';
-                    const dataRecord = `${prefix}${segment}`;
-                    const checksum = calculateChecksum(dataRecord.slice(1));
-                    output += `${dataRecord}${checksum}\n`;
-                });
-
-                output += ':00000001FF';
-                hexContent = output;
-                engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
-                resultsDiv.innerHTML = `<pre>${output}</pre>`;
-            } else {
-                engineInfoDiv.innerHTML = '';
-                resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
-            }
+          } else {
+            resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
+            return;
+          }
         }
+      }
 
-        function downloadHex() {
-            const title = document.getElementById('title').value.trim();
-            if (title.length !== 17) {
-                alert("The title must be exactly 17 characters long.");
-                return;
-            }
-            if (!hexContent) {
-                alert("Please identify the engine type before downloading.");
-                return;
-            }
-            const fileName = `${title}_IQA_DATA.hex`;
-            const blob = new Blob([hexContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    </script>
+      hexContent = '';
+      if (engineType) {
+        let output = '';
+        output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
+        segments.forEach((segment, index) => {
+          const prefix = segmentPrefixes[index] || ':08000000';
+          const dataRecord = `${prefix}${segment}`;
+          const checksum = calculateChecksum(dataRecord.slice(1));
+          output += `${dataRecord}${checksum}\n`;
+        });
+        output += ':00000001FF';
+
+        hexContent = output;
+        engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
+        resultsDiv.innerHTML = `<pre>${output}</pre>`;
+      } else {
+        engineInfoDiv.innerHTML = '';
+        resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
+      }
+    }
+
+    function downloadHex() {
+      const title = document.getElementById('title').value.trim();
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
+        return;
+      }
+      if (!hexContent) {
+        alert("Please identify the engine type before downloading.");
+        return;
+      }
+      const fileName = `${title}_IQA_DATA.hex`;
+      const blob = new Blob([hexContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Inicializamos los inputs para Panther
+    toggleEngineInputs();
+  </script>
+
 </body>
 </html>
