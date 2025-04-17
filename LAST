@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IQA Checksum</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    /* Styling (unchanged) */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #00274d;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      width: 90%;
+      max-width: 600px;
+      background: #fff;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #00274d;
+    }
+    input, button, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+    input:focus, textarea:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #results {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border: 1px solid #eee;
+      font-family: 'Courier New', Courier, monospace;
+      white-space: pre-wrap;
+      color: #333;
+    }
+    #engineInfo {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 26px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #007bff;
+    }
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    .toggle-row {
+      display: flex;
+      gap: 60px;
+      justify-content: center;
+      align-items: center;
+      margin: 20px 0;
+    }
+
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>IQA Checksum</h1>
+
+    <!-- Toggle Row -->
+    <div class="toggle-row">
+      <div class="toggle-group">
+        <span>IQA</span>
+        <label class="switch">
+          <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+          <span class="slider round"></span>
+        </label>
+        <span>QR</span>
+      </div>
+
+      <div class="toggle-group">
+        <span>Panther</span>
+        <label class="switch">
+          <input type="checkbox" id="engineToggle" onchange="toggleEngineInputs()">
+          <span class="slider round"></span>
+        </label>
+        <span>Lion</span>
+      </div>
+    </div>
+
+    <!-- IQA Section -->
+    <div id="iqaSection">
+      <input type="text" id="title" placeholder="Enter title (exactly 17 characters)" maxlength="17"><br>
+      <textarea id="inputString" placeholder="Enter input string"></textarea><br>
+      <button onclick="identifyEngine()">Check</button>
+      <button onclick="downloadHex()">Download .HEX</button>
+      <div id="engineInfo"></div>
+      <div id="results"></div>
+    </div>
+
+    <!-- QR Section -->
+    <div id="qrSection" class="hidden">
+      <div id="qrInputs"></div>
+      <input type="text" id="qrEngineSerialNumber" placeholder="Enter Engine Serial Number"><br>
+      <button onclick="generateQRCode()">Generate QR Code</button>
+      <div id="qrCodeResult"></div>
+    </div>
+  </div>
+
+  <script>
+    const qrInputsDiv = document.getElementById('qrInputs');
+    const qrCodeResult = document.getElementById('qrCodeResult');
+    const resultsDiv = document.getElementById('results');
+    const engineInfoDiv = document.getElementById('engineInfo');
+    let hexContent = '';
+
+    function toggleMode() {
+      const isQR = document.getElementById('modeToggle').checked;
+      document.getElementById('iqaSection').classList.toggle('hidden', isQR);
+      document.getElementById('qrSection').classList.toggle('hidden', !isQR);
+    }
+
+    function toggleEngineInputs() {
+      const isLion = document.getElementById('engineToggle').checked;
+      qrInputsDiv.innerHTML = '';
+      const inputCount = isLion ? 6 : 4;
+      for (let i = 1; i <= inputCount; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Segment ${i}`;
+        input.maxLength = 16;
+        qrInputsDiv.appendChild(input);
+      }
+    }
+
+    function formatEngineSerialNumber(serialNumber) {
+      const isLion = document.getElementById('engineToggle').checked;
+      if (isLion) {
+        return '[)>061T' + serialNumber + ' 9SIQA.V6.112Z';
+      }
+      return serialNumber; // For Panther, no change
+    }
+
+    function calculateChecksum(data) {
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 2) {
+        const byte = parseInt(data.substring(i, i + 2), 16);
+        sum += byte;
+      }
+      const checksum = (256 - (sum % 256)) % 256;
+      return checksum.toString(16).toUpperCase().padStart(2, '0');
+    }
+
+    function identifyEngine() {
+      const title = document.getElementById('title').value.trim();
+      const engineSerialNumber = formatEngineSerialNumber(document.getElementById('engineSerialNumber').value.trim());
+
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
+        return;
+      }
+
+      const inputString = document.getElementById('inputString').value;
+      let engineType = null;
+      let segments = [];
+      const pantherMarkers = ['ARA', 'AMA', 'ANA'];
+      const lionMarkers = ['FA', 'BA', 'BEA'];
+
+      for (const marker of pantherMarkers) {
+        if (inputString.includes(marker)) {
+          engineType = 'Panther';
+          const markerIndex = inputString.indexOf(marker);
+          let relevantPart = inputString.substring(markerIndex + marker.length);
+          relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
+          const allSegments = relevantPart.match(/.{16}/g) || [];
+          segments = allSegments.slice(0, 4);
+          break;
+        }
+      }
+
+      if (!engineType) {
+        for (const marker of lionMarkers) {
+          if (inputString.includes(marker)) {
+            engineType = 'Lion';
+            const zIndex = inputString.indexOf('Z');
+            if (zIndex !== -1) {
+              const remainingString = inputString.substring(zIndex + 1);
+              const allSegments = remainingString.match(/.{16}/g) || [];
+              segments = allSegments.slice(0, 6);
+            }
+            break;
+          }
+        }
+      }
+
+      hexContent = '';
+      if (engineType) {
+        let output = '';
+        output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
+        segments.forEach((segment, index) => {
+          const prefix = engineType === 'Lion' ? ':08000000' : ':08000800';
+          const dataRecord = `${prefix}${segment}`;
+          const checksum = calculateChecksum(dataRecord.slice(1));
+          output += `${dataRecord}${checksum}\n`;
+        });
+        output += ':00000001FF';
+
+        hexContent = output;
+        engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:<br>Engine Serial Number: ${engineSerialNumber}`;
+        resultsDiv.innerHTML = `<pre>${output}</pre>`;
+      } else {
+        engineInfoDiv.innerHTML = '';
+        resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
+      }
+    }
+
+    function downloadHex() {
+      const title = document.getElementById('title').value.trim();
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
+        return;
+      }
+      if (!hexContent) {
+        alert("Please identify the engine type before downloading.");
+        return;
+      }
+      const fileName = `${title}_IQA_DATA.hex`;
+      const blob = new Blob([hexContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function generateQRCode() {
+      const inputs = document.querySelectorAll('#qrInputs input');
+      let qrData = '';
+    
+      // Append the formatted Engine Serial Number first
+      const engineSerialNumber = formatEngineSerialNumber(document.getElementById('qrEngineSerialNumber').value.trim());
+      qrData += engineSerialNumber;
+    
+      // Append the segments after the Engine Serial Number
+      inputs.forEach(input => {
+        qrData += input.value.trim();
+      });
+    
+      if (qrData === '') {
+        alert("Please fill all input fields before generating the QR code.");
+        return;
+      }
+    
+      QRCode.toDataURL(qrData, function (err, url) {
+        if (err) {
+          console.error(err);
+          alert("Failed to generate QR code.");
+        } else {
+          qrCodeResult.innerHTML = `<img src="${url}" alt="Generated QR Code"/>`;
+        }
+      });
+    }
+
+
+    // Initialize inputs for Panther by default
+    toggleEngineInputs();
+  </script>
+
+</body>
+</html>
