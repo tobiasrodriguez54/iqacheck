@@ -7,7 +7,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
-    /* Styling (unchanged) */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
@@ -174,7 +173,6 @@
     <!-- QR Section -->
     <div id="qrSection" class="hidden">
       <div id="qrInputs"></div>
-      <input type="text" id="qrEngineSerialNumber" placeholder="Enter Engine Serial Number"><br>
       <button onclick="generateQRCode()">Generate QR Code</button>
       <div id="qrCodeResult"></div>
     </div>
@@ -183,9 +181,6 @@
   <script>
     const qrInputsDiv = document.getElementById('qrInputs');
     const qrCodeResult = document.getElementById('qrCodeResult');
-    const resultsDiv = document.getElementById('results');
-    const engineInfoDiv = document.getElementById('engineInfo');
-    let hexContent = '';
 
     function toggleMode() {
       const isQR = document.getElementById('modeToggle').checked;
@@ -206,13 +201,7 @@
       }
     }
 
-    function formatEngineSerialNumber(serialNumber) {
-      const isLion = document.getElementById('engineToggle').checked;
-      if (isLion) {
-        return '[)>061T' + serialNumber + ' 9SIQA.V6.112Z';
-      }
-      return serialNumber; // For Panther, no change
-    }
+    let hexContent = '';
 
     function calculateChecksum(data) {
       let sum = 0;
@@ -226,18 +215,24 @@
 
     function identifyEngine() {
       const title = document.getElementById('title').value.trim();
-      const engineSerialNumber = formatEngineSerialNumber(document.getElementById('engineSerialNumber').value.trim());
-
       if (title.length !== 17) {
         alert("The title must be exactly 17 characters long.");
         return;
       }
 
       const inputString = document.getElementById('inputString').value;
-      let engineType = null;
-      let segments = [];
+      const resultsDiv = document.getElementById('results');
+      const engineInfoDiv = document.getElementById('engineInfo');
+
       const pantherMarkers = ['ARA', 'AMA', 'ANA'];
       const lionMarkers = ['FA', 'BA', 'BEA'];
+      let engineType = null;
+      let segments = [];
+
+      const segmentPrefixes = [
+        ':08000000', ':08000800', ':08001000',
+        ':08001800', ':08002000', ':08002800'
+      ];
 
       for (const marker of pantherMarkers) {
         if (inputString.includes(marker)) {
@@ -247,6 +242,11 @@
           relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
           const allSegments = relevantPart.match(/.{16}/g) || [];
           segments = allSegments.slice(0, 4);
+
+          if (segments.length !== 4 || !segments.every(seg => seg.length === 16)) {
+            resultsDiv.innerHTML = "Invalid Panther input: Requires 4 segments of 16 characters each.";
+            return;
+          }
           break;
         }
       }
@@ -255,13 +255,23 @@
         for (const marker of lionMarkers) {
           if (inputString.includes(marker)) {
             engineType = 'Lion';
-            const zIndex = inputString.indexOf('Z');
-            if (zIndex !== -1) {
-              const remainingString = inputString.substring(zIndex + 1);
-              const allSegments = remainingString.match(/.{16}/g) || [];
-              segments = allSegments.slice(0, 6);
-            }
             break;
+          }
+        }
+        if (engineType === 'Lion') {
+          const zIndex = inputString.indexOf('Z');
+          if (zIndex !== -1) {
+            const remainingString = inputString.substring(zIndex + 1);
+            const allSegments = remainingString.match(/.{16}/g) || [];
+            segments = allSegments.slice(0, 6);
+
+            if (segments.length !== 6 || !segments.every(seg => seg.length === 16)) {
+              resultsDiv.innerHTML = "Invalid Lion input: Requires 6 segments of 16 characters each.";
+              return;
+            }
+          } else {
+            resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
+            return;
           }
         }
       }
@@ -271,7 +281,7 @@
         let output = '';
         output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
         segments.forEach((segment, index) => {
-          const prefix = engineType === 'Lion' ? ':08000000' : ':08000800';
+          const prefix = segmentPrefixes[index] || ':08000000';
           const dataRecord = `${prefix}${segment}`;
           const checksum = calculateChecksum(dataRecord.slice(1));
           output += `${dataRecord}${checksum}\n`;
@@ -279,7 +289,7 @@
         output += ':00000001FF';
 
         hexContent = output;
-        engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:<br>Engine Serial Number: ${engineSerialNumber}`;
+        engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
         resultsDiv.innerHTML = `<pre>${output}</pre>`;
       } else {
         engineInfoDiv.innerHTML = '';
@@ -310,21 +320,15 @@
     function generateQRCode() {
       const inputs = document.querySelectorAll('#qrInputs input');
       let qrData = '';
-    
-      // Append the formatted Engine Serial Number first
-      const engineSerialNumber = formatEngineSerialNumber(document.getElementById('qrEngineSerialNumber').value.trim());
-      qrData += engineSerialNumber;
-    
-      // Append the segments after the Engine Serial Number
       inputs.forEach(input => {
         qrData += input.value.trim();
       });
-    
+
       if (qrData === '') {
         alert("Please fill all input fields before generating the QR code.");
         return;
       }
-    
+
       QRCode.toDataURL(qrData, function (err, url) {
         if (err) {
           console.error(err);
@@ -335,8 +339,7 @@
       });
     }
 
-
-    // Initialize inputs for Panther by default
+    // Inicializamos inputs para Panther
     toggleEngineInputs();
   </script>
 
