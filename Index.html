@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engine Data IQA / QR Generator</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  input { margin: 5px 0; padding: 5px; width: 300px; }
+  button { margin-top: 10px; padding: 10px 20px; }
+  .hidden { display: none; }
+  #qrInputs input { display: block; margin-bottom: 6px; }
+  #qrCodeResult img { margin-top: 10px; }
+  label { display: block; margin: 10px 0 5px; }
+</style>
+</head>
+<body>
+
+<h1>Engine Data IQA / QR Generator</h1>
+
+<label>
+  Title (exactly 17 chars):
+  <input type="text" id="title" maxlength="17" />
+</label>
+
+<label>
+  Input String:
+  <textarea id="inputString" rows="4" cols="50"></textarea>
+</label>
+
+<label>
+  Mode: IQA
+  <input type="checkbox" id="modeToggle" />
+  QR
+</label>
+
+<div id="iqaSection">
+  <button onclick="identifyEngine()">Identify Engine & Generate HEX</button>
+  <div id="engineInfo"></div>
+  <div id="results" style="white-space: pre-wrap; margin-top: 10px;"></div>
+  <button onclick="downloadHex()">Download HEX File</button>
+</div>
+
+<div id="qrSection" class="hidden">
+  <label>
+    Engine Type: Panther
+    <input type="checkbox" id="engineToggle" />
+    Lion
+  </label>
+
+  <div id="qrInputs"></div>
+
+  <button onclick="generateQRCode()">Generate QR Code</button>
+  <div id="qrCodeResult"></div>
+</div>
+
+<!-- QRCode.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+<script>
+  const qrInputsDiv = document.getElementById('qrInputs');
+  const qrCodeResult = document.getElementById('qrCodeResult');
+
+  function toggleMode() {
+    const isQR = document.getElementById('modeToggle').checked;
+    document.getElementById('iqaSection').classList.toggle('hidden', isQR);
+    document.getElementById('qrSection').classList.toggle('hidden', !isQR);
+
+    if (isQR) {
+      toggleEngineInputs();
+      qrCodeResult.innerHTML = '';
+    }
+  }
+
+  function toggleEngineInputs() {
+    const isQR = document.getElementById('modeToggle').checked;
+    if (!isQR) return;
+
+    const isLion = document.getElementById('engineToggle').checked;
+    qrInputsDiv.innerHTML = '';
+
+    // Engine Serial Number input
+    const engineSerialInput = document.createElement('input');
+    engineSerialInput.type = 'text';
+    engineSerialInput.placeholder = 'Engine Serial Number';
+    engineSerialInput.maxLength = 17;
+    qrInputsDiv.appendChild(engineSerialInput);
+
+    // Add segments
+    const segmentCount = isLion ? 6 : 4;
+    for (let i = 1; i <= segmentCount; i++) {
+      const segInput = document.createElement('input');
+      segInput.type = 'text';
+      segInput.placeholder = `Segment ${i}`;
+      segInput.maxLength = 16;
+      qrInputsDiv.appendChild(segInput);
+    }
+
+    qrCodeResult.innerHTML = '';
+  }
+
+  document.getElementById('modeToggle').addEventListener('change', toggleMode);
+  document.getElementById('engineToggle').addEventListener('change', toggleEngineInputs);
+
+  let hexContent = '';
+
+  function calculateChecksum(data) {
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 2) {
+      sum += parseInt(data.substring(i, i + 2), 16);
+    }
+    const checksum = (256 - (sum % 256)) % 256;
+    return checksum.toString(16).toUpperCase().padStart(2, '0');
+  }
+
+  function identifyEngine() {
+    const title = document.getElementById('title').value.trim();
+    if (title.length !== 17) {
+      alert("The title must be exactly 17 characters long.");
+      return;
+    }
+
+    const inputString = document.getElementById('inputString').value;
+    const resultsDiv = document.getElementById('results');
+    const engineInfoDiv = document.getElementById('engineInfo');
+
+    const pantherMarkers = ['ARA', 'AMA', 'ANA'];
+    const lionMarkers = ['FA', 'BA', 'BEA'];
+    let engineType = null;
+    let segments = [];
+
+    const segmentPrefixes = [
+      ':08000000', ':08000800', ':08001000',
+      ':08001800', ':08002000', ':08002800'
+    ];
+
+    for (const marker of pantherMarkers) {
+      if (inputString.includes(marker)) {
+        engineType = 'Panther';
+        const markerIndex = inputString.indexOf(marker);
+        let relevantPart = inputString.substring(markerIndex + marker.length);
+        relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
+        const allSegments = relevantPart.match(/.{16}/g) || [];
+        segments = allSegments.slice(0, 4);
+
+        if (segments.length !== 4 || !segments.every(seg => seg.length === 16)) {
+          resultsDiv.innerHTML = "Invalid Panther input: Requires 4 segments of 16 characters each.";
+          return;
+        }
+        break;
+      }
+    }
+
+    if (!engineType) {
+      for (const marker of lionMarkers) {
+        if (inputString.includes(marker)) {
+          engineType = 'Lion';
+          break;
+        }
+      }
+      if (engineType === 'Lion') {
+        const zIndex = inputString.indexOf('Z');
+        if (zIndex !== -1) {
+          const remainingString = inputString.substring(zIndex + 1);
+          const allSegments = remainingString.match(/.{16}/g) || [];
+          segments = allSegments.slice(0, 6);
+
+          if (segments.length !== 6 || !segments.every(seg => seg.length === 16)) {
+            resultsDiv.innerHTML = "Invalid Lion input: Requires 6 segments of 16 characters each.";
+            return;
+          }
+        } else {
+          resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
+          return;
+        }
+      }
+    }
+
+    hexContent = '';
+    if (engineType) {
+      let output = '';
+      output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
+      segments.forEach((segment, index) => {
+        const prefix = segmentPrefixes[index] || ':08000000';
+        const dataRecord = `${prefix}${segment}`;
+        const checksum = calculateChecksum(dataRecord.slice(1));
+        output += `${dataRecord}${checksum}\n`;
+      });
+      output += ':00000001FF';
+
+      hexContent = output;
+      engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
+      resultsDiv.innerHTML = `<pre>${output}</pre>`;
+    } else {
+      engineInfoDiv.innerHTML = '';
+      resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
+    }
+  }
+
+  function downloadHex() {
+    const title = document.getElementById('title').value.trim();
+    if (title.length !== 17) {
+      alert("The title must be exactly 17 characters long.");
+      return;
+    }
+    if (!hexContent) {
+      alert("Please identify the engine type before downloading.");
+      return;
+    }
+    const fileName = `${title}_IQA_DATA.hex`;
+    const blob = new Blob([hexContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function generateQRCode() {
+    const inputs = document.querySelectorAll('#qrInputs input');
+    if (inputs.length === 0) {
+      alert("No inputs found.");
+      return;
+    }
+
+    const engineSerialNumber = inputs[0].value.trim();
+    if (!engineSerialNumber) {
+      alert("Please enter the Engine Serial Number.");
+      return;
+    }
+
+    let segmentsData = '';
+    for (let i = 1; i < inputs.length; i++) {
+      const val = inputs[i].value.trim();
+      if (!val) {
+        alert(`Please fill all segment inputs (Segment ${i}).`);
+        return;
+      }
+      segmentsData += val;
+    }
+
+    const isLion = document.getElementById('engineToggle').checked;
+    let qrData = '';
+
+    if (isLion) {
+      // Example prefix and suffix - replace with your actual strings
+      const prefix = 'PREFIX_';
+      const suffix = '_SUFFIX';
+
+      qrData = prefix + engineSerialNumber + suffix + segmentsData;
+    } else {
+      qrData = engineSerialNumber + segmentsData;
+    }
+
+    QRCode.toDataURL(qrData, function (err, url) {
+      if (err) {
+        console.error(err);
+        alert("Failed to generate QR code.");
+      } else {
+        qrCodeResult.innerHTML = `<img src="${url}" alt="Generated QR Code"/>`;
+      }
+    });
+  }
+</script>
+
+</body>
+</html>
