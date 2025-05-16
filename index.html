@@ -174,10 +174,10 @@
       if (isLion) {
         // The special string with control chars (ASCII 29 is \x1D, ASCII 30 is \x1E)
         // Using \x1D for ASCII 29 (Group Separator), \x1E for ASCII 30 (Record Separator)
-        // Your string: "[)>061T" + serial + " RB3Q 6007 FA" + "9SIQA.V6.112Z" + segments
+        // Your string: "[)>061T" + serial + " RB3Q 6007 FA " + "9SIQA.V6.112Z" + segments
 
         qrData = "[)>" + "\x1E" + "06" + "\x1D" + "1T" + serialNumber + 
-                 " RB3Q 6007 FA" + "\x1D" + "9SIQA.V6.1" + "\x1D" + "12Z" + segmentsData;
+                 " RB3Q 6007 FA " + "\x1D" + "9SIQA.V6.1" + "\x1D" + "12Z" + segmentsData;
 
       } else {
         // For Panther or default, just concatenate serial + segments (example)
