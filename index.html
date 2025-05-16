@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IQA Checksum</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <!-- Removed qrcode.min.js, added bwip-js for Data Matrix -->
+  <script src="https://cdn.jsdelivr.net/npm/bwip-js/dist/bwip-js-min.js"></script>
   <style>
-    /* Your existing styles here (omitted for brevity) */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
@@ -73,9 +73,54 @@
       margin-bottom: 10px;
       text-align: center;
     }
-    /* Toggle Switch styles omitted for brevity */
     .hidden {
       display: none;
+    }
+    /* Toggle Switch styles */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #00274d;
+    }
+    /* Switch style */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input { display:none; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #007bff;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
     }
   </style>
 </head>
@@ -119,7 +164,7 @@
     <div id="qrSection" class="hidden">
       <input type="text" id="serialNumberInput" placeholder="Enter Serial Number (16 characters)" maxlength="16" style="margin-bottom:10px;"><br>
       <div id="qrInputs"></div>
-      <button onclick="generateQRCode()">Generate QR Code</button>
+      <button onclick="generateQRCode()">Generate Data Matrix</button>
       <div id="qrCodeResult" style="margin-top:15px;"></div>
     </div>
   </div>
@@ -147,12 +192,10 @@
       }
     }
 
-    // Generate QR Code function with your specific string format
     function generateQRCode() {
       const isLion = document.getElementById('engineToggle').checked;
       const serialNumber = document.getElementById('serialNumberInput').value.trim();
 
-      // Validate serial number length
       if (serialNumber.length !== 16) {
         alert("Serial number must be exactly 16 characters long.");
         return;
@@ -172,26 +215,36 @@
       let qrData = '';
 
       if (isLion) {
-        // The special string with control chars (ASCII 29 is \x1D, ASCII 30 is \x1E)
-        // Using \x1D for ASCII 29 (Group Separator), \x1E for ASCII 30 (Record Separator)
-        // Your string: "[)>061T" + serial + " RB3Q 6007 FA " + "9SIQA.V6.112Z" + segments
-
         qrData = "[)>" + "\x1E" + "06" + "\x1D" + "1T" + serialNumber + 
-                 " RB3Q 6007 FA " + "\x1D" + "9SIQA.V6.1" + "\x1D" + "12Z" + segmentsData;
-
+                 " RB3Q 6007 FA" + "\x1D" + "9SIQA.V6.1" + "\x1D" + "12Z" + segmentsData;
       } else {
-        // For Panther or default, just concatenate serial + segments (example)
         qrData = serialNumber + segmentsData;
       }
 
-      QRCode.toDataURL(qrData, function (err, url) {
-        if (err) {
-          console.error(err);
-          alert("Failed to generate QR code.");
-        } else {
-          qrCodeResult.innerHTML = `<img src="${url}" alt="Generated QR Code"/>`;
-        }
-      });
+      qrCodeResult.innerHTML = '';
+
+      try {
+        const canvas = document.createElement('canvas');
+        qrCodeResult.appendChild(canvas);
+
+        bwipjs.toCanvas(canvas, {
+          bcid:        'datamatrix',   // Data Matrix barcode type
+          text:        qrData,
+          scale:       5,
+          includetext: false,
+          padding:     0
+        });
+      } catch (e) {
+        alert('Failed to generate Data Matrix: ' + e);
+      }
+    }
+
+    // Dummy placeholders for missing functions to avoid errors
+    function identifyEngine() {
+      alert('Identify Engine functionality not implemented.');
+    }
+    function downloadHex() {
+      alert('Download .HEX functionality not implemented.');
     }
 
     // Initialize with Panther inputs by default
