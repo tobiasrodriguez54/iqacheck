@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IQA Checksum</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <!-- Removed qrcode.min.js, added bwip-js for Data Matrix -->
-  <script src="https://cdn.jsdelivr.net/npm/bwip-js/dist/bwip-js-min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -73,45 +71,35 @@
       margin-bottom: 10px;
       text-align: center;
     }
-    .hidden {
-      display: none;
-    }
-    /* Toggle Switch styles */
-    .toggle-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .toggle-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-      color: #00274d;
-    }
-    /* Switch style */
     .switch {
       position: relative;
       display: inline-block;
-      width: 40px;
-      height: 20px;
+      width: 50px;
+      height: 26px;
     }
-    .switch input { display:none; }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
     .slider {
       position: absolute;
       cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background-color: #ccc;
       transition: .4s;
-      border-radius: 20px;
+      border-radius: 26px;
     }
     .slider:before {
       position: absolute;
       content: "";
-      height: 16px;
-      width: 16px;
-      left: 2px;
-      bottom: 2px;
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
       background-color: white;
       transition: .4s;
       border-radius: 50%;
@@ -120,37 +108,29 @@
       background-color: #007bff;
     }
     input:checked + .slider:before {
-      transform: translateX(20px);
+      transform: translateX(24px);
+    }
+    .toggle-row {
+      display: flex;
+      gap: 60px;
+      justify-content: center;
+      align-items: center;
+      margin: 20px 0;
+    }
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
-
   <div class="container">
     <h1>IQA Checksum</h1>
-
-    <!-- Toggle Row -->
-    <div class="toggle-row">
-      <div class="toggle-group">
-        <span>IQA</span>
-        <label class="switch">
-          <input type="checkbox" id="modeToggle" onchange="toggleMode()">
-          <span class="slider round"></span>
-        </label>
-        <span>QR</span>
-      </div>
-
-      <div class="toggle-group">
-        <span>Panther</span>
-        <label class="switch">
-          <input type="checkbox" id="engineToggle" onchange="toggleEngineInputs()">
-          <span class="slider round"></span>
-        </label>
-        <span>Lion</span>
-      </div>
-    </div>
-
-    <!-- IQA Section -->
     <div id="iqaSection">
       <input type="text" id="title" placeholder="Enter title (exactly 17 characters)" maxlength="17"><br>
       <textarea id="inputString" placeholder="Enter input string"></textarea><br>
@@ -159,97 +139,112 @@
       <div id="engineInfo"></div>
       <div id="results"></div>
     </div>
-
-    <!-- QR Section -->
-    <div id="qrSection" class="hidden">
-      <input type="text" id="serialNumberInput" placeholder="Enter Serial Number (16 characters)" maxlength="16" style="margin-bottom:10px;"><br>
-      <div id="qrInputs"></div>
-      <button onclick="generateQRCode()">Generate Data Matrix</button>
-      <div id="qrCodeResult" style="margin-top:15px;"></div>
-    </div>
   </div>
-
   <script>
-    const qrInputsDiv = document.getElementById('qrInputs');
-    const qrCodeResult = document.getElementById('qrCodeResult');
-
-    function toggleMode() {
-      const isQR = document.getElementById('modeToggle').checked;
-      document.getElementById('iqaSection').classList.toggle('hidden', isQR);
-      document.getElementById('qrSection').classList.toggle('hidden', !isQR);
-    }
-
-    function toggleEngineInputs() {
-      const isLion = document.getElementById('engineToggle').checked;
-      qrInputsDiv.innerHTML = '';
-      const inputCount = isLion ? 6 : 4;
-      for (let i = 1; i <= inputCount; i++) {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = `Segment ${i} (16 chars)`;
-        input.maxLength = 16;
-        qrInputsDiv.appendChild(input);
+    let hexContent = '';
+    function calculateChecksum(data) {
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 2) {
+        const byte = parseInt(data.substring(i, i + 2), 16);
+        sum += byte;
       }
+      const checksum = (256 - (sum % 256)) % 256;
+      return checksum.toString(16).toUpperCase().padStart(2, '0');
     }
-
-    function generateQRCode() {
-      const isLion = document.getElementById('engineToggle').checked;
-      const serialNumber = document.getElementById('serialNumberInput').value.trim();
-
-      if (serialNumber.length !== 16) {
-        alert("Serial number must be exactly 16 characters long.");
+    function identifyEngine() {
+      const title = document.getElementById('title').value.trim();
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
         return;
       }
-
-      const inputs = document.querySelectorAll('#qrInputs input');
-      let segmentsData = '';
-
-      for (let input of inputs) {
-        if (input.value.trim().length !== 16) {
-          alert("All segments must be exactly 16 characters long.");
-          return;
+      const inputString = document.getElementById('inputString').value;
+      const resultsDiv = document.getElementById('results');
+      const engineInfoDiv = document.getElementById('engineInfo');
+      const pantherMarkers = ['ARA', 'AMA', 'ANA'];
+      const lionMarkers = ['FA', 'BA', 'BEA'];
+      let engineType = null;
+      let segments = [];
+      const segmentPrefixes = [
+        ':08000000', ':08000800', ':08001000',
+        ':08001800', ':08002000', ':08002800'
+      ];
+      for (const marker of pantherMarkers) {
+        if (inputString.includes(marker)) {
+          engineType = 'Panther';
+          const markerIndex = inputString.indexOf(marker);
+          let relevantPart = inputString.substring(markerIndex + marker.length);
+          relevantPart = relevantPart.replace(new RegExp(String.fromCharCode(29), 'g'), '');
+          const allSegments = relevantPart.match(/.{16}/g) || [];
+          segments = allSegments.slice(0, 4);
+          if (segments.length !== 4 || !segments.every(seg => seg.length === 16)) {
+            resultsDiv.innerHTML = "Invalid Panther input: Requires 4 segments of 16 characters each.";
+            return;
+          }
+          break;
         }
-        segmentsData += input.value.trim();
       }
-
-      let qrData = '';
-
-      if (isLion) {
-        qrData = "[)>" + "\x1E" + "06" + "\x1D" + "1T" + serialNumber + 
-                 " RB3Q 6007 FA " + "\x1D" + "9SIQA.V6.1" + "\x1D" + "12Z" + segmentsData;
-      } else {
-        qrData = serialNumber + segmentsData;
+      if (!engineType) {
+        for (const marker of lionMarkers) {
+          if (inputString.includes(marker)) {
+            engineType = 'Lion';
+            break;
+          }
+        }
+        if (engineType === 'Lion') {
+          const zIndex = inputString.indexOf('Z');
+          if (zIndex !== -1) {
+            const remainingString = inputString.substring(zIndex + 1);
+            const allSegments = remainingString.match(/.{16}/g) || [];
+            segments = allSegments.slice(0, 6);
+            if (segments.length !== 6 || !segments.every(seg => seg.length === 16)) {
+              resultsDiv.innerHTML = "Invalid Lion input: Requires 6 segments of 16 characters each.";
+              return;
+            }
+          } else {
+            resultsDiv.innerHTML = "Invalid Lion input: 'Z' not found.";
+            return;
+          }
+        }
       }
-
-      qrCodeResult.innerHTML = '';
-
-      try {
-        const canvas = document.createElement('canvas');
-        qrCodeResult.appendChild(canvas);
-
-        bwipjs.toCanvas(canvas, {
-          bcid:        'datamatrix',   // Data Matrix barcode type
-          text:        qrData,
-          scale:       5,
-          includetext: false,
-          padding:     0
+      hexContent = '';
+      if (engineType) {
+        let output = '';
+        output += engineType === 'Lion' ? ':020000040000FA\n' : ':020000040001F9\n';
+        segments.forEach((segment, index) => {
+          const prefix = segmentPrefixes[index] || ':08000000';
+          const dataRecord = `${prefix}${segment}`;
+          const checksum = calculateChecksum(dataRecord.slice(1));
+          output += `${dataRecord}${checksum}\n`;
         });
-      } catch (e) {
-        alert('Failed to generate Data Matrix: ' + e);
+        output += ':00000001FF';
+        hexContent = output;
+        engineInfoDiv.innerHTML = `Engine Type: ${engineType} (Valid)<br>Segments with Prefixes:`;
+        resultsDiv.innerHTML = `<pre>${output}</pre>`;
+      } else {
+        engineInfoDiv.innerHTML = '';
+        resultsDiv.innerHTML = "Engine type not identified (no valid markers found).";
       }
-    }
-
-    // Dummy placeholders for missing functions to avoid errors
-    function identifyEngine() {
-      alert('Identify Engine functionality not implemented.');
     }
     function downloadHex() {
-      alert('Download .HEX functionality not implemented.');
+      const title = document.getElementById('title').value.trim();
+      if (title.length !== 17) {
+        alert("The title must be exactly 17 characters long.");
+        return;
+      }
+      if (!hexContent) {
+        alert("Please identify the engine type before downloading.");
+        return;
+      }
+      const fileName = `${title}_IQA_DATA.hex`;
+      const blob = new Blob([hexContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
     }
-
-    // Initialize with Panther inputs by default
     toggleEngineInputs();
   </script>
-
 </body>
 </html>
